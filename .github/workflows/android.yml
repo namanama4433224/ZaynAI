@@ -17,7 +17,8 @@ jobs:
       - name: Extract project
         run: |
           mkdir -p "$RUNNER_TEMP/source"
-          unzip -q ./*.zip -d "$RUNNER_TEMP/source"
+          ZIP=$(find . -maxdepth 1 -iname '*.zip' -print -quit)
+          unzip -q "$ZIP" -d "$RUNNER_TEMP/source"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -25,19 +26,28 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
       - name: Build APK
         run: |
-          GRADLE_FILE=$(find "$RUNNER_TEMP/source" -name gradlew -type f | head -n 1)
-          if [ -z "$GRADLE_FILE" ]; then
-            echo "Gradle wrapper tidak ditemukan"
+          APP_FILE=$(find "$RUNNER_TEMP/source" -path '*/app/build.gradle.kts' -print -quit)
+          if [ -z "$APP_FILE" ]; then
+            echo "File app/build.gradle.kts tidak ditemukan"
             exit 1
           fi
-          cd "$(dirname "$GRADLE_FILE")"
-          chmod +x gradlew
-          ./gradlew assembleDebug
+          PROJECT_DIR=$(dirname "$(dirname "$APP_FILE")")
+          cd "$PROJECT_DIR"
+          gradle assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: ZaynAI-APK
-          path: ${{ runner.temp }}/source/**/build/outputs/apk/debug/*.apk
+          path: ${{ runner.temp }}/source/**/app/build/outputs/apk/debug/*.apk
+
